@@ -23,7 +23,20 @@ fi
 # Check if PHP is installed
 if ! command -v php &> /dev/null; then
     echo "❌ PHP is not installed. Installing PHP..."
-    yum install -y php php-cli
+    if command -v apt-get &> /dev/null; then
+        echo "Using apt-get to install PHP (Ubuntu/Debian)..."
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y php php-cli
+    elif command -v dnf &> /dev/null; then
+        echo "Using dnf to install PHP (Fedora/RHEL)..."
+        dnf install -y php php-cli
+    elif command -v yum &> /dev/null; then
+        echo "Using yum to install PHP (legacy RHEL/CentOS)..."
+        yum install -y php php-cli
+    else
+        echo "❌ No supported package manager found. Please install PHP manually."
+        exit 1
+    fi
     if [ $? -ne 0 ]; then
         echo "❌ Failed to install PHP. Please install PHP manually."
         exit 1

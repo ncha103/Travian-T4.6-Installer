@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  travian-installer:
+    build: .
+    container_name: travian-installer
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount installer files for development
+      - ./:/installer
+      # Mount travian directory (where server files will be)
+      - travian-data:/travian
+      # Mount logs
+      - installer-logs:/var/log/travian_installer
+      # Mount MySQL data
+      - mysql-data:/var/lib/mysql
+    environment:
+      - DEBIAN_FRONTEND=noninteractive
+    privileged: true
+    restart: unless-stopped
+    networks:
+      - travian-network
+
+volumes:
+  travian-data:
+    driver: local
+  installer-logs:
+    driver: local
+  mysql-data:
+    driver: local
+
+networks:
+  travian-network:
+    driver: bridge

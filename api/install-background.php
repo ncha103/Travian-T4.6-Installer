@@ -117,21 +117,21 @@ try {
 
     // Step 2: Update system packages
     updateProgress(10, 'Updating system packages...');
-    if (!executeCommand('yum update -y', 'System update')) {
+    if (!executeCommand('DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y', 'System update')) {
         throw new Exception('System update failed');
     }
 
     // Step 2: Install essential packages
     updateProgress(15, 'Installing essential packages...');
     $packages = [
-        'epel-release',
+        'software-properties-common',
         'git curl wget unzip',
-        'yum-utils',
-        'certbot python2-certbot-nginx'
+        'apt-transport-https',
+        'certbot python3-certbot-nginx'
     ];
 
     foreach ($packages as $package) {
-        if (!executeCommand("yum install -y $package", "Installing $package")) {
+        if (!executeCommand("DEBIAN_FRONTEND=noninteractive apt-get install -y $package", "Installing $package")) {
             throw new Exception("Failed to install $package");
         }
     }
@@ -142,7 +142,7 @@ try {
     
     // Create travian user with proper setup
     executeCommand('useradd -r -s /bin/bash -d /home/travian -m travian 2>/dev/null || true', 'Creating travian user');
-    executeCommand('usermod -aG wheel travian 2>/dev/null || true', 'Adding travian to wheel group');
+    executeCommand('usermod -aG sudo travian 2>/dev/null || true', 'Adding travian to sudo group');
     
     // Create sudoers entry for travian user
     $sudoersContent = "travian ALL=(ALL) NOPASSWD:ALL\n";
@@ -175,7 +175,7 @@ try {
     updateProgress(25, 'Installing Nginx...');
     $logger->step(25, 'Nginx Installation', 'started');
     
-    if (!executeCommand('yum install -y nginx', 'Installing Nginx')) {
+    if (!executeCommand('DEBIAN_FRONTEND=noninteractive apt-get install -y nginx', 'Installing Nginx')) {
         throw new Exception('Nginx installation failed');
     }
     
@@ -196,32 +196,21 @@ try {
     // Step 5: Install MySQL 8.0
     updateProgress(30, 'Installing MySQL 8.0...');
     
-    // Install MySQL repository
-    executeCommand('yum install -y https://dev.mysql.com/get/mysql84-community-release-el7-1.noarch.rpm', 'Installing MySQL repository');
-    
-    // Import GPG key
-    executeCommand('curl -o /etc/pki/rpm-gpg/RPM-GPG-KEY-mysql-2023 https://repo.mysql.com/RPM-GPG-KEY-mysql-2023', 'Downloading MySQL GPG key');
-    executeCommand('rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-mysql-2023', 'Importing MySQL GPG key');
-    
-    // Install MySQL Server
-    if (!executeCommand('yum install -y mysql-community-server', 'Installing MySQL Server')) {
+    // Install MySQL Server from Ubuntu repositories
+    if (!executeCommand('DEBIAN_FRONTEND=noninteractive apt-get install -y mysql-server mysql-client', 'Installing MySQL Server')) {
         throw new Exception('MySQL installation failed');
     }
     
-    executeCommand('systemctl start mysqld', 'Starting MySQL');
-    executeCommand('systemctl enable mysqld', 'Enabling MySQL');
+    executeCommand('systemctl start mysql', 'Starting MySQL');
+    executeCommand('systemctl enable mysql', 'Enabling MySQL');
 
     // Step 6: Configure MySQL
     updateProgress(35, 'Configuring MySQL...');
     $logger->step(35, 'MySQL Configuration', 'started');
     
-    // Get temporary password
+    // Ubuntu MySQL has no initial password, can connect as root using sudo
     $tempPassword = '';
-    $logContent = file_get_contents('/var/log/mysqld.log');
-    if (preg_match('/temporary password.*: (.+)/', $logContent, $matches)) {
-        $tempPassword = trim($matches[1]);
-        $logger->info("Found temporary MySQL password");
-    }
+    $logger->info("Configuring MySQL for Ubuntu (no initial password required)");
 
     // Configure MySQL with comprehensive settings
     $mysqlConfig = "\n# Travian Server MySQL Configuration\n[mysqld]\ndefault_authentication_plugin = mysql_native_password\nbind-address = 0.0.0.0\nport = 3306\nmax_connections = 200\nmax_allowed_packet = 64M\ninnodb_buffer_pool_size = 256M\ninnodb_log_file_size = 64M\ninnodb_flush_log_at_trx_commit = 2\ninnodb_flush_method = O_DIRECT\nquery_cache_type = 1\nquery_cache_size = 32M\nquery_cache_limit = 2M\ntmp_table_size = 32M\nmax_heap_table_size = 32M\nslow_query_log = 1\nslow_query_log_file = /var/log/mysql-slow.log\nlong_query_time = 2\n\n[client]\nuser=root\npassword={$dbConfig['db_root_pass']}\nhost=localhost\nport=3306\n";
@@ -237,27 +226,25 @@ try {
     // Wait for MySQL to start
     sleep(5);
     
-    // Run MySQL secure installation if we have temp password
-    if (!empty($tempPassword)) {
-        $secureInstallScript = "#!/bin/bash\nmysql -u root -p'$tempPassword' --connect-expired-password -e \"ALTER USER 'root'@'localhost' IDENTIFIED BY '{$dbConfig['db_root_pass']}';\"\nmysql -u root -p'{$dbConfig['db_root_pass']}' -e \"DELETE FROM mysql.user WHERE User='';\"\nmysql -u root -p'{$dbConfig['db_root_pass']}' -e \"DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');\"\nmysql -u root -p'{$dbConfig['db_root_pass']}' -e \"DROP DATABASE IF EXISTS test;\"\nmysql -u root -p'{$dbConfig['db_root_pass']}' -e \"DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';\"\nmysql -u root -p'{$dbConfig['db_root_pass']}' -e \"FLUSH PRIVILEGES;\"\n";
-        file_put_contents('/tmp/mysql_secure.sh', $secureInstallScript);
-        executeCommand('chmod +x /tmp/mysql_secure.sh', 'Making MySQL secure script executable');
-        executeCommand('/tmp/mysql_secure.sh', 'Running MySQL secure installation');
-        executeCommand('rm /tmp/mysql_secure.sh', 'Cleaning up MySQL secure script');
-    }
+    // Run MySQL secure installation for Ubuntu (use sudo mysql for initial setup)
+    $secureInstallScript = "#!/bin/bash\nsudo mysql -e \"ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '{$dbConfig['db_root_pass']}';\"\nmysql -u root -p'{$dbConfig['db_root_pass']}' -e \"DELETE FROM mysql.user WHERE User='';\"\nmysql -u root -p'{$dbConfig['db_root_pass']}' -e \"DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');\"\nmysql -u root -p'{$dbConfig['db_root_pass']}' -e \"DROP DATABASE IF EXISTS test;\"\nmysql -u root -p'{$dbConfig['db_root_pass']}' -e \"DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';\"\nmysql -u root -p'{$dbConfig['db_root_pass']}' -e \"FLUSH PRIVILEGES;\"\n";
+    file_put_contents('/tmp/mysql_secure.sh', $secureInstallScript);
+    executeCommand('chmod +x /tmp/mysql_secure.sh', 'Making MySQL secure script executable');
+    executeCommand('/tmp/mysql_secure.sh', 'Running MySQL secure installation');
+    executeCommand('rm /tmp/mysql_secure.sh', 'Cleaning up MySQL secure script');
     
     $logger->step(35, 'MySQL Configuration', 'completed');
 
-    // Step 7: Install PHP 7.3
-    updateProgress(40, 'Installing PHP 7.3...');
+    // Step 7: Install PHP 7.4 (latest stable for Ubuntu)
+    updateProgress(40, 'Installing PHP 7.4...');
     
-    // Enable Remi repository
-    executeCommand('yum install -y http://rpms.remirepo.net/enterprise/remi-release-7.rpm', 'Installing Remi repository');
-    executeCommand('yum-config-manager --enable remi-php73', 'Enabling PHP 7.3 repository');
+    // Add PHP PPA for Ubuntu
+    executeCommand('add-apt-repository -y ppa:ondrej/php', 'Adding PHP PPA repository');
+    executeCommand('apt-get update', 'Updating package list');
     
-    // Install PHP and extensions
-    $phpPackages = 'php php-mysqli php-pdo php-pdo_mysql php-pdo_sqlite php-mysqlnd php-memcache php-redis php-gd php-mbstring php-xml php-json php-posix php-sysvsem php-sysvshm php-curl php-sockets php-ftp php-calendar php-fileinfo php-zip php-geoip';
-    if (!executeCommand("yum install -y $phpPackages", 'Installing PHP and extensions')) {
+    // Install PHP and extensions (Ubuntu package names)
+    $phpPackages = 'php7.4 php7.4-fpm php7.4-mysql php7.4-pdo php7.4-sqlite3 php7.4-memcache php7.4-redis php7.4-gd php7.4-mbstring php7.4-xml php7.4-curl php7.4-zip php7.4-intl php7.4-bcmath';
+    if (!executeCommand("DEBIAN_FRONTEND=noninteractive apt-get install -y $phpPackages", 'Installing PHP and extensions')) {
         throw new Exception('PHP installation failed');
     }
 
@@ -273,26 +260,26 @@ try {
     $opcacheConfig = "\n; OPcache Configuration\nopcache.enable=1\nopcache.enable_cli=1\nopcache.memory_consumption=128\nopcache.interned_strings_buffer=8\nopcache.max_accelerated_files=4000\nopcache.revalidate_freq=2\nopcache.fast_shutdown=1\nopcache.save_comments=1\n";
     file_put_contents('/etc/php.ini', $opcacheConfig, FILE_APPEND);
     
-    // Configure PHP-FPM for travian user
-    $phpFpmConfig = "[www]\nuser = travian\ngroup = travian\nlisten = 127.0.0.1:9000\nlisten.owner = travian\nlisten.group = travian\nlisten.mode = 0660\npm = dynamic\npm.max_children = 50\npm.start_servers = 5\npm.min_spare_servers = 5\npm.max_spare_servers = 35\npm.max_requests = 500\npm.process_idle_timeout = 10s\npm.max_requests = 1000\nphp_admin_value[error_log] = /var/log/php-fpm/www-error.log\nphp_admin_flag[log_errors] = on\nphp_value[session.save_handler] = files\nphp_value[session.save_path] = /var/lib/php/session\nphp_value[soap.wsdl_cache_dir] = /var/lib/php/wsdlcache\n";
-    file_put_contents('/etc/php-fpm.d/www.conf', $phpFpmConfig);
+    // Configure PHP-FPM for travian user (Ubuntu path)
+    $phpFpmConfig = "[www]\nuser = travian\ngroup = travian\nlisten = 127.0.0.1:9000\nlisten.owner = travian\nlisten.group = travian\nlisten.mode = 0660\npm = dynamic\npm.max_children = 50\npm.start_servers = 5\npm.min_spare_servers = 5\npm.max_spare_servers = 35\npm.max_requests = 500\npm.process_idle_timeout = 10s\npm.max_requests = 1000\nphp_admin_value[error_log] = /var/log/php7.4-fpm/www-error.log\nphp_admin_flag[log_errors] = on\nphp_value[session.save_handler] = files\nphp_value[session.save_path] = /var/lib/php/sessions\nphp_value[soap.wsdl_cache_dir] = /var/lib/php/wsdlcache\n";
+    file_put_contents('/etc/php/7.4/fpm/pool.d/www.conf', $phpFpmConfig);
     
     // Create PHP session directory
-    executeCommand('mkdir -p /var/lib/php/session', 'Creating PHP session directory');
+    executeCommand('mkdir -p /var/lib/php/sessions', 'Creating PHP session directory');
     executeCommand('chown -R travian:travian /var/lib/php', 'Setting PHP session ownership');
     
-    executeCommand('systemctl restart php-fpm', 'Restarting PHP-FPM');
-    executeCommand('systemctl enable php-fpm', 'Enabling PHP-FPM');
+    executeCommand('systemctl restart php7.4-fpm', 'Restarting PHP-FPM');
+    executeCommand('systemctl enable php7.4-fpm', 'Enabling PHP-FPM');
     $logger->step(45, 'PHP Configuration', 'completed');
 
     // Install and configure Redis
     updateProgress(47, 'Installing and configuring Redis...');
     $logger->step(47, 'Redis Installation', 'started');
     
-    if (executeCommand('yum install -y redis', 'Installing Redis')) {
+    if (executeCommand('DEBIAN_FRONTEND=noninteractive apt-get install -y redis-server', 'Installing Redis')) {
         // Configure Redis
         $redisConfig = "# Redis Configuration for Travian\nbind 127.0.0.1\nport 6379\ntimeout 300\ntcp-keepalive 60\nmaxmemory 256mb\nmaxmemory-policy allkeys-lru\nsave 900 1\nsave 300 10\nsave 60 10000\n";
-        file_put_contents('/etc/redis.conf', $redisConfig, FILE_APPEND);
+        file_put_contents('/etc/redis/redis.conf', $redisConfig, FILE_APPEND);
         
         executeCommand('systemctl start redis', 'Starting Redis');
         executeCommand('systemctl enable redis', 'Enabling Redis');
@@ -305,10 +292,10 @@ try {
     updateProgress(48, 'Installing and configuring Memcached...');
     $logger->step(48, 'Memcached Installation', 'started');
     
-    if (executeCommand('yum install -y memcached', 'Installing Memcached')) {
-        // Configure Memcached
-        $memcachedConfig = "# Memcached Configuration for Travian\nPORT=\"11211\"\nUSER=\"memcached\"\nMAXCONN=\"1024\"\nCACHESIZE=\"256\"\nOPTIONS=\"-l 127.0.0.1\"\n";
-        file_put_contents('/etc/sysconfig/memcached', $memcachedConfig);
+    if (executeCommand('DEBIAN_FRONTEND=noninteractive apt-get install -y memcached', 'Installing Memcached')) {
+        // Configure Memcached (Ubuntu uses /etc/memcached.conf)
+        $memcachedConfig = "# Memcached Configuration for Travian\n-p 11211\n-u memcached\n-m 256\n-c 1024\n-l 127.0.0.1\n";
+        file_put_contents('/etc/memcached.conf', $memcachedConfig);
         
         executeCommand('systemctl start memcached', 'Starting Memcached');
         executeCommand('systemctl enable memcached', 'Enabling Memcached');
@@ -545,10 +532,10 @@ try {
 
     // Step 16: Configure firewall
     updateProgress(85, 'Configuring firewall...');
-    executeCommand('firewall-cmd --permanent --add-service=http', 'Adding HTTP to firewall');
-    executeCommand('firewall-cmd --permanent --add-service=https', 'Adding HTTPS to firewall');
-    executeCommand('firewall-cmd --permanent --add-service=ssh', 'Adding SSH to firewall');
-    executeCommand('firewall-cmd --reload', 'Reloading firewall');
+    executeCommand('ufw allow 80/tcp', 'Adding HTTP to firewall');
+    executeCommand('ufw allow 443/tcp', 'Adding HTTPS to firewall');
+    executeCommand('ufw allow 22/tcp', 'Adding SSH to firewall');
+    executeCommand('ufw --force enable', 'Enabling firewall');
 
     // Step 17: Final setup
     updateProgress(90, 'Running final setup...');

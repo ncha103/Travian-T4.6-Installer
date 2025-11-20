@@ -4,7 +4,18 @@ A modern, user-friendly web-based installer for setting up Travian game servers 
 
 ## 🚀 Quick Start
 
-### Option 1: Using the Launcher Script
+### Option 1: Using Docker (Recommended) 🐳
+```bash
+# Build and start the container
+docker-compose up -d
+
+# Access the installer
+# Open browser to: http://localhost:8080
+```
+
+See [DOCKER.md](DOCKER.md) for detailed Docker instructions.
+
+### Option 2: Using the Launcher Script
 ```bash
 # Make the launcher executable
 chmod +x launch.php
@@ -13,7 +24,7 @@ chmod +x launch.php
 sudo php launch.php
 ```
 
-### Option 2: Using PHP Built-in Server
+### Option 3: Using PHP Built-in Server
 ```bash
 # Navigate to installer directory
 cd /installer
@@ -22,7 +33,7 @@ cd /installer
 sudo php -S 0.0.0.0:8080
 ```
 
-### Option 3: Using Apache/Nginx
+### Option 4: Using Apache/Nginx
 ```bash
 # Copy installer to web root
 sudo cp -r /installer /var/www/html/
@@ -72,6 +83,16 @@ The installer guides you through 5 simple steps:
 - 👤 Admin credentials
 - 📋 Next steps
 
+## 🐳 Docker Support
+
+Run the installer in a Docker container for easy setup and isolation:
+
+```bash
+docker-compose up -d
+```
+
+See [DOCKER.md](DOCKER.md) for complete Docker documentation.
+
 ## 🛠️ What Gets Installed
 
 The installer automatically sets up:
@@ -108,11 +129,17 @@ If you prefer manual installation, refer to:
 ## 🚨 Requirements
 
 ### System Requirements
-- **OS**: CentOS 7+ or RHEL 7+
+- **OS**: Ubuntu 20.04+, Debian 11+, or CentOS 7+ (or use Docker on any platform)
 - **RAM**: Minimum 2GB (4GB recommended)
 - **Storage**: Minimum 5GB free space
 - **CPU**: 2+ cores recommended
 - **Network**: Static IP address
+
+**Docker Requirements** (if using Docker):
+- Docker Engine 20.10+
+- Docker Compose 2.0+
+- 4GB RAM minimum
+- 10GB free disk space
 
 ### Prerequisites
 - Root access to the server
