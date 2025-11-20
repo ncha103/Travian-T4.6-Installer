@@ -26,7 +26,12 @@ service memcached start
 
 # Start PHP-FPM service
 echo "📦 Starting PHP-FPM service..."
-service php7.4-fpm start
+mkdir -p /run/php
+if [ -x /etc/init.d/php7.4-fpm ]; then
+    /etc/init.d/php7.4-fpm start
+else
+    echo "⚠️ PHP-FPM init script not found, skipping..."
+fi
 
 echo ""
 echo "✅ All services started successfully!"

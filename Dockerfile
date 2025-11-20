@@ -47,8 +47,10 @@ RUN apt-get update && apt-get install -y \
     certbot \
     python3-certbot-nginx \
     sudo \
+    dos2unix \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -s /usr/sbin/php-fpm7.4 /usr/sbin/php-fpm
 
 # Configure PHP
 RUN echo "max_execution_time = 300" >> /etc/php/7.4/cli/php.ini \
@@ -76,7 +78,8 @@ EXPOSE 8080
 
 # Set up entrypoint
 COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+RUN dos2unix /usr/local/bin/docker-entrypoint.sh \
+    && chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 
