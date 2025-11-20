@@ -1,44 +1,53 @@
 # Docker ignore file for Travian Server Installer
 
 # Git files
+
 .git/
 .gitignore
 
 # Documentation (keep README.md for container)
-*.md
+
+\*.md
 !README.md
 !DOCKER.md
 
 # IDE and editor files
+
 .vscode/
 .idea/
-*.swp
-*.swo
-*~
+_.swp
+_.swo
+\*~
 
 # OS files
+
 .DS_Store
 Thumbs.db
 desktop.ini
 
 # Log files
-*.log
+
+\*.log
 logs/
 
 # Temporary files
+
 tmp/
 temp/
-*.tmp
+\*.tmp
 
 # Node modules (if any)
+
 node_modules/
 
 # Build artifacts
+
 dist/
 build/
 
 # Environment files with secrets
+
 .env.local
-.env.*.local
-*.key
-*.pem
+.env._.local
+_.key
+\*.pem

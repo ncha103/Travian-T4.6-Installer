@@ -55,6 +55,7 @@ Access the installer at: **http://localhost:8080**
 ### What's Included
 
 The Docker container includes:
+
 - **Ubuntu 22.04** base system
 - **PHP 7.4** with all required extensions
 - **MySQL Server** for database
@@ -140,6 +141,7 @@ docker exec travian-installer service memcached status
 ### Privileged Mode
 
 The container runs in privileged mode to:
+
 - Install and configure system services (MySQL, Nginx, PHP-FPM)
 - Manage user accounts and permissions
 - Configure firewall rules (UFW)
@@ -148,6 +150,7 @@ The container runs in privileged mode to:
 ### Data Persistence
 
 All important data is stored in Docker volumes:
+
 - Game files: `/travian`
 - Databases: `/var/lib/mysql`
 - Logs: `/var/log/travian_installer`
@@ -204,18 +207,21 @@ docker-compose up -d --build
 For production use:
 
 1. **Use proper SSL certificates**:
+
    ```bash
    # Mount certificate directory
    docker run -v /path/to/certs:/etc/ssl/certs ...
    ```
 
 2. **Use environment variables for secrets**:
+
    ```bash
    # Create .env file with database passwords
    docker run --env-file .env ...
    ```
 
 3. **Set up regular backups**:
+
    ```bash
    # Backup volumes
    docker run --rm -v travian-data:/data -v $(pwd):/backup ubuntu tar czf /backup/travian-backup.tar.gz /data
@@ -251,10 +257,10 @@ Edit `docker-compose.yml`:
 
 ```yaml
 ports:
-  - "8080:8080"  # Installer
-  - "80:80"      # HTTP
-  - "443:443"    # HTTPS
-  - "3306:3306"  # MySQL
+  - "8080:8080" # Installer
+  - "80:80" # HTTP
+  - "443:443" # HTTPS
+  - "3306:3306" # MySQL
 ```
 
 ## Cleaning Up
@@ -281,6 +287,7 @@ docker system prune -a
 ## Support
 
 For issues and questions:
+
 - Check the main [README.md](README.md)
 - Join our [Discord server](https://discord.gg/ZgmNK2cQjm)
 - Open an issue on GitHub
