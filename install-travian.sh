@@ -691,7 +691,6 @@ http {
     gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
 
     include /etc/nginx/conf.d/*.conf;
-    include /etc/nginx/partial.d/*.conf;
 }
 EOF
 
