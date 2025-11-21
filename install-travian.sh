@@ -133,13 +133,13 @@ execute_command "Xóa thư mục /travian cũ (nếu có)" \
 
 # Clone từ GitHub
 if execute_command "Clone TravianT4.6 từ GitHub" \
-    "git clone https://github.com/advocaite/TravianT4.6.git /travian"; then
+    "git clone https://github.com/ncha103/TravianT4.6.git /travian"; then
     log_success "Tải mã nguồn thành công"
 else
     log_warning "Git clone thất bại, thử phương pháp backup với wget"
     
     execute_command "Tải file ZIP từ GitHub" \
-        "wget -O /tmp/travian.zip https://github.com/advocaite/TravianT4.6/archive/refs/heads/main.zip"
+        "wget -O /tmp/travian.zip https://github.com/ncha103/TravianT4.6/archive/refs/heads/main.zip"
     
     execute_command "Giải nén mã nguồn" \
         "unzip -q /tmp/travian.zip -d /tmp/"
@@ -188,8 +188,6 @@ ESSENTIAL_PACKAGES=(
     "wget"
     "unzip"
     "apt-transport-https"
-    "certbot"
-    "python3-certbot-nginx"
 )
 
 for package in "${ESSENTIAL_PACKAGES[@]}"; do
@@ -545,6 +543,8 @@ CREATE DATABASE IF NOT EXISTS main;
 CREATE DATABASE IF NOT EXISTS ${SERVER_NAME_SAFE}_ts2;
 CREATE DATABASE IF NOT EXISTS ${SERVER_NAME_SAFE}_ts3;
 CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';
+# Cập nhật password nếu user đã tồn tại (cho trường hợp chạy lại script)
+ALTER USER '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';
 GRANT ALL PRIVILEGES ON main.* TO '$DB_USER'@'localhost';
 GRANT ALL PRIVILEGES ON ${SERVER_NAME_SAFE}_ts2.* TO '$DB_USER'@'localhost';
 GRANT ALL PRIVILEGES ON ${SERVER_NAME_SAFE}_ts3.* TO '$DB_USER'@'localhost';
@@ -646,6 +646,10 @@ execute_command "Thiết lập ownership cho server directories" \
 log_info ""
 log_info "=== BƯỚC 12 (60%): Cấu hình Nginx ==="
 
+# Xóa cấu hình Nginx cũ
+execute_command "Xóa cấu hình Nginx cũ" \
+    "rm -rf /etc/nginx/conf.d/* /etc/nginx/sites-enabled/* /etc/nginx/partial.d"
+
 # Tạo nginx main configuration
 log_info "Tạo Nginx main configuration..."
 
@@ -679,13 +683,6 @@ http {
 
     include /etc/nginx/mime.types;
     default_type application/octet-stream;
-
-    # SSL Configuration
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384;
-    ssl_prefer_server_ciphers off;
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 10m;
 
     # Gzip Configuration
     gzip on;
@@ -743,7 +740,6 @@ cat > /etc/nginx/partial.d/travian_defaults.conf << 'EOF'
 add_header X-Frame-Options DENY;
 add_header X-Content-Type-Options nosniff;
 add_header X-XSS-Protection "1; mode=block";
-add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
 # Main location block
 location / {
@@ -788,27 +784,12 @@ log_success "Travian defaults partial đã được tạo"
 log_info "Tạo server-specific configuration..."
 
 cat > /etc/nginx/conf.d/${SERVER_NAME_SAFE}_ts3.conf << EOF
-# HTTP to HTTPS redirect
+# HTTP server
 server {
     listen 80;
     server_name $SERVER_NAME;
-    return 301 https://\$server_name\$request_uri;
-}
-
-# HTTPS server
-server {
-    listen 443 ssl http2;
-    server_name $SERVER_NAME;
     root /travian/main_script/public;
     index index.php index.html;
-
-    # SSL Configuration
-    ssl_certificate /etc/ssl/certs/nginx-selfsigned.crt;
-    ssl_certificate_key /etc/ssl/private/nginx-selfsigned.key;
-    ssl_session_timeout 1d;
-    ssl_session_cache shared:SSL:50m;
-    ssl_stapling on;
-    ssl_stapling_verify on;
 
     # Include Travian defaults
     include /etc/nginx/partial.d/travian_defaults.conf;
@@ -832,19 +813,6 @@ execute_command "Restart Nginx" \
     "systemctl restart nginx"
 
 ################################################################################
-# BƯỚC 13: Tạo SSL certificate
-################################################################################
-
-log_info ""
-log_info "=== BƯỚC 13 (65%): Tạo SSL certificate ==="
-
-execute_command "Tạo SSL directories" \
-    "mkdir -p /etc/ssl/private /etc/ssl/certs"
-
-execute_command "Tạo self-signed SSL certificate" \
-    "openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/ssl/private/nginx-selfsigned.key -out /etc/ssl/certs/nginx-selfsigned.crt -subj '/C=US/ST=State/L=City/O=Organization/CN=$SERVER_NAME'"
-
-################################################################################
 # BƯỚC 14: Tạo các file cấu hình
 ################################################################################
 
@@ -863,7 +831,7 @@ global \$globalConfig;
 \$globalConfig['staticParameters'] = [];
 \$globalConfig['staticParameters']['default_language'] = '$DEFAULT_LANG';
 \$globalConfig['staticParameters']['default_timezone'] = '$TIMEZONE';
-\$globalConfig['staticParameters']['indexUrl'] = 'https://$SERVER_NAME/';
+\$globalConfig['staticParameters']['indexUrl'] = 'http://$SERVER_NAME/';
 \$globalConfig['staticParameters']['adminEmail'] = '$ADMIN_EMAIL';
 \$globalConfig['staticParameters']['recaptcha_public_key'] = '';
 \$globalConfig['staticParameters']['recaptcha_private_key'] = '';
@@ -1114,9 +1082,6 @@ log_info "=== BƯỚC 18 (85%): Cấu hình firewall ==="
 execute_command "Cho phép HTTP (port 80)" \
     "ufw allow 80/tcp"
 
-execute_command "Cho phép HTTPS (port 443)" \
-    "ufw allow 443/tcp"
-
 execute_command "Cho phép SSH (port 22)" \
     "ufw allow 22/tcp"
 
@@ -1150,7 +1115,7 @@ log_info ""
 log_info "=== BƯỚC 20 (95%): Tạo admin access ==="
 
 LOGIN_HASH=$(echo -n "$(echo -n 'admin123' | sha1sum | awk '{print $1}')" | sha1sum | awk '{print $1}')
-ADMIN_URL="https://$SERVER_NAME/login.php?action=multiLogin&hash=$LOGIN_HASH&token=$ADMIN_TOKEN"
+ADMIN_URL="http://$SERVER_NAME/login.php?action=multiLogin&hash=$LOGIN_HASH&token=$ADMIN_TOKEN"
 
 log_success "Admin URL đã được tạo"
 
@@ -1172,7 +1137,7 @@ Server Information:
 - Timezone: $TIMEZONE
 
 Access Information:
-- Server URL: https://$SERVER_NAME
+- Server URL: http://$SERVER_NAME
 - Admin URL: $ADMIN_URL
 - Admin Username: admin
 - Admin Password: admin123
@@ -1230,7 +1195,7 @@ echo ""
 
 log_info "📝 THÔNG TIN TRUY CẬP:"
 echo ""
-log_info "Server URL: https://$SERVER_NAME"
+log_info "Server URL: http://$SERVER_NAME"
 log_info "Admin URL: $ADMIN_URL"
 log_info "Admin Username: admin"
 log_info "Admin Password: admin123"
