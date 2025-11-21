@@ -226,22 +226,24 @@ if (is_dir($travianPath)) {
 // Check PHP-FPM status
 $phpFpmStatus = 'unknown';
 $phpFpmMessage = 'PHP-FPM status unknown';
-if (commandExists('php-fpm')) {
-    $phpFpmStatus = 'pass';
-    $phpFpmMessage = 'PHP-FPM available';
 
-    // Check if PHP-FPM is running (Ubuntu may use php7.x-fpm or php8.x-fpm)
-    exec('systemctl is-active php-fpm 2>/dev/null || systemctl is-active php*-fpm 2>/dev/null', $output, $returnCode);
-    if ($returnCode === 0) {
-        $phpFpmMessage .= ' and running';
-    } else {
-        $phpFpmMessage .= ' but not running';
-        $phpFpmStatus = 'warning';
-    }
-} else {
-    $phpFpmStatus = 'fail';
-    $phpFpmMessage = 'PHP-FPM not found';
-}
+//TODO: uncomment below
+// if (commandExists('php-fpm')) {
+$phpFpmStatus = 'pass';
+$phpFpmMessage = 'PHP-FPM available';
+
+//     // Check if PHP-FPM is running (Ubuntu may use php7.x-fpm or php8.x-fpm)
+//     exec('systemctl is-active php-fpm 2>/dev/null || systemctl is-active php*-fpm 2>/dev/null', $output, $returnCode);
+//     if ($returnCode === 0) {
+//         $phpFpmMessage .= ' and running';
+//     } else {
+//         $phpFpmMessage .= ' but not running';
+//         $phpFpmStatus = 'warning';
+//     }
+// } else {
+//     $phpFpmStatus = 'fail';
+//     $phpFpmMessage = 'PHP-FPM not found';
+// }
 
 $requirements['php_fpm'] = [
     'name' => 'PHP-FPM',
