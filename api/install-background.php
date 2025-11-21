@@ -216,7 +216,7 @@ try {
     $logger->info("Configuring MySQL for Ubuntu (no initial password required)");
 
     // Configure MySQL with comprehensive settings
-    $mysqlConfig = "\n# Travian Server MySQL Configuration\n[mysqld]\ndefault_authentication_plugin = mysql_native_password\nbind-address = 0.0.0.0\nport = 3306\nmax_connections = 200\nmax_allowed_packet = 64M\ninnodb_buffer_pool_size = 256M\ninnodb_log_file_size = 64M\ninnodb_flush_log_at_trx_commit = 2\ninnodb_flush_method = O_DIRECT\nquery_cache_type = 1\nquery_cache_size = 32M\nquery_cache_limit = 2M\ntmp_table_size = 32M\nmax_heap_table_size = 32M\nslow_query_log = 1\nslow_query_log_file = /var/log/mysql-slow.log\nlong_query_time = 2\n\n[client]\nuser=root\npassword={$dbConfig['db_root_pass']}\nhost=localhost\nport=3306\n";
+    $mysqlConfig = "\n# Travian Server MySQL Configuration\n[mysql]\ndefault_authentication_plugin = mysql_native_password\nbind-address = 0.0.0.0\nport = 3306\nmax_connections = 200\nmax_allowed_packet = 64M\ninnodb_buffer_pool_size = 256M\ninnodb_log_file_size = 64M\ninnodb_flush_log_at_trx_commit = 2\ninnodb_flush_method = O_DIRECT\nquery_cache_type = 1\nquery_cache_size = 32M\nquery_cache_limit = 2M\ntmp_table_size = 32M\nmax_heap_table_size = 32M\nslow_query_log = 1\nslow_query_log_file = /var/log/mysql-slow.log\nlong_query_time = 2\n\n[client]\nuser=root\npassword={$dbConfig['db_root_pass']}\nhost=localhost\nport=3306\n";
     file_put_contents('/etc/my.cnf', $mysqlConfig, FILE_APPEND);
 
     // Create MySQL log directory
@@ -224,7 +224,7 @@ try {
     executeCommand('chown mysql:mysql /var/log/mysql', 'Setting MySQL log permissions');
 
     // Restart MySQL to apply configuration
-    executeCommand('systemctl restart mysqld', 'Restarting MySQL with new configuration');
+    executeCommand('systemctl restart mysql', 'Restarting MySQL with new configuration');
 
     // Wait for MySQL to start
     sleep(5);
