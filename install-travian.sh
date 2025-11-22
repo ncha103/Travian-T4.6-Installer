@@ -701,32 +701,32 @@ execute_command "Tạo nginx partials directory" \
     "mkdir -p /etc/nginx/partial.d"
 
 # Tạo default server configuration
-log_info "Tạo default server configuration..."
-
-cat > /etc/nginx/conf.d/default.conf << 'EOF'
-# Default server configuration
-server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
-    server_name _;
-    root /var/www/html;
-    index index.html index.htm;
-
-    location / {
-        try_files $uri $uri/ =404;
-    }
-
-    error_page 404 /404.html;
-    location = /404.html {
-    }
-
-    error_page 500 502 503 504 /50x.html;
-    location = /50x.html {
-    }
-}
-EOF
-
-log_success "Default server configuration đã được tạo"
+# log_info "Tạo default server configuration..."
+# 
+# cat > /etc/nginx/conf.d/default.conf << 'EOF'
+# # Default server configuration
+# server {
+#     listen 80 default_server;
+#     listen [::]:80 default_server;
+#     server_name _;
+#     root /var/www/html;
+#     index index.html index.htm;
+# 
+#     location / {
+#         try_files $uri $uri/ =404;
+#     }
+# 
+#     error_page 404 /404.html;
+#     location = /404.html {
+#     }
+# 
+#     error_page 500 502 503 504 /50x.html;
+#     location = /50x.html {
+#     }
+# }
+# EOF
+# 
+# log_success "Default server configuration đã được tạo"
 
 # Tạo Travian defaults partial
 log_info "Tạo Travian defaults partial..."
@@ -785,8 +785,10 @@ log_info "Tạo server-specific configuration..."
 cat > /etc/nginx/conf.d/${SERVER_NAME_SAFE}_ts3.conf << EOF
 # HTTP server
 server {
-    listen 80;
-    server_name $SERVER_NAME;
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    #server_name $SERVER_NAME;
+    server_name _;
     root /travian/main_script/public;
     index index.php index.html;
 
